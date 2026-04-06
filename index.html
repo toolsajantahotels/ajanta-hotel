@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ajanta Hotel — Operations Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --maroon:#7B2D2D;--maroon-dark:#5C1F1F;--maroon-light:#F5ECEC;
+  --gold:#C49A2A;--gold-dim:#8a6d2a;
+  --bg:#FAF8F5;--surface:#fff;--border:#E8E0D8;--border-strong:#C8BFB5;
+  --green:#2E7D4F;--green-light:#EAF5EF;
+  --red:#C0392B;--blue:#2563eb;
+  --text:#1A1210;--text-dim:#6B5E58;--text-muted:#A09088;
+  --font:'DM Sans',system-ui,sans-serif;
+  --font-d:'Playfair Display',serif;
+  --font-m:'DM Mono',monospace;
+  --dp-card:#191c19;--dp-border:#252925;
+  --dp-text:#e8ede8;--dp-dim:#8a958a;--dp-muted:#4a514a;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;}
+
+/* HEADER */
+.header{background:var(--maroon);padding:0 24px;position:sticky;top:0;z-index:200;display:flex;align-items:center;justify-content:space-between;min-height:64px;}
+.hbrand{display:flex;align-items:center;gap:14px;}
+.hemblem{width:42px;height:42px;border:1.5px solid rgba(196,154,42,.5);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:19px;background:rgba(196,154,42,.1);}
+.hname{font-family:var(--font-d);font-size:19px;color:#F5F0E8;}
+.htag{font-size:10px;color:rgba(245,240,232,.5);margin-top:2px;letter-spacing:1.5px;text-transform:uppercase;}
+.hright{display:flex;align-items:center;gap:14px;}
+.live-pill{display:flex;align-items:center;gap:6px;font-size:11px;color:rgba(245,240,232,.7);background:rgba(255,255,255,.08);padding:4px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.12);font-family:var(--font-m);}
+.pulse{width:6px;height:6px;border-radius:50%;background:#4ade80;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.hlink{font-size:11px;color:rgba(196,154,42,.8);text-decoration:none;}
+.realtime-badge{font-size:10px;background:rgba(61,186,111,.15);border:1px solid rgba(61,186,111,.3);color:#3dba6f;padding:3px 10px;border-radius:20px;font-family:var(--font-m);}
+
+/* TABS */
+.tab-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;display:flex;}
+.tab{padding:13px 20px;font-size:13px;border:none;background:transparent;cursor:pointer;color:var(--text-dim);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;display:flex;align-items:center;gap:7px;font-family:var(--font);}
+.tab.active{color:var(--maroon);border-bottom-color:var(--maroon);font-weight:600;}
+.tab:hover:not(.active){color:var(--text);}
+
+/* CONTAINER */
+.container{max-width:980px;margin:0 auto;padding:22px 22px 60px;}
+
+/* FILTER */
+.filter-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:18px;}
+.filter-label{font-size:12px;color:var(--text-dim);}
+.fbtn{padding:5px 13px;font-size:12px;border:1px solid var(--border);border-radius:20px;background:var(--surface);cursor:pointer;color:var(--text-dim);transition:all .15s;font-family:var(--font);}
+.fbtn.active{background:var(--maroon);color:#fff;border-color:var(--maroon);}
+.date-input{font-size:12px;padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);}
+
+/* KPI CARDS */
+.kpi-row{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:18px;}
+.kpi-card{background:var(--dp-card);border:1px solid var(--dp-border);border-radius:10px;padding:14px 12px;position:relative;overflow:hidden;transition:transform .2s;}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--ka,var(--gold));opacity:.8;}
+.kpi-card:hover{transform:translateY(-1px);}
+.kpi-lbl{font-size:10px;color:var(--dp-dim);font-family:var(--font-m);text-transform:uppercase;letter-spacing:.7px;margin-bottom:7px;}
+.kpi-val{font-family:var(--font-d);font-size:20px;color:var(--dp-text);line-height:1;margin-bottom:5px;}
+.kpi-sub{font-size:10px;font-family:var(--font-m);color:var(--dp-muted);}
+
+/* STATUS PILLS */
+.status-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;}
+.sp{background:var(--dp-card);border:1px solid var(--dp-border);border-radius:7px;padding:9px 12px;}
+.sp-name{font-size:10px;font-family:var(--font-m);color:var(--dp-dim);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sp-st{display:flex;align-items:center;gap:5px;font-size:10px;}
+.sp-dot{width:5px;height:5px;border-radius:50%;}
+
+/* DARK PANELS */
+.row2{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;margin-bottom:14px;}
+.row2e{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.row1{margin-bottom:14px;}
+.dp{background:var(--dp-card);border:1px solid var(--dp-border);border-radius:12px;overflow:hidden;}
+.dp-head{padding:12px 16px;border-bottom:1px solid var(--dp-border);display:flex;align-items:center;justify-content:space-between;}
+.dp-title{font-family:var(--font-m);font-size:10px;text-transform:uppercase;letter-spacing:.9px;color:var(--dp-dim);display:flex;align-items:center;gap:7px;}
+.dp-badge{font-size:10px;padding:2px 8px;border-radius:20px;border:1px solid;}
+.bg{border-color:rgba(61,186,111,.4);color:#3dba6f;background:rgba(61,186,111,.08);}
+.br{border-color:rgba(224,85,85,.4);color:#e05555;background:rgba(224,85,85,.08);}
+.bb{border-color:rgba(74,158,255,.4);color:#4a9eff;background:rgba(74,158,255,.08);}
+.bgold{border-color:rgba(201,168,76,.4);color:#c9a84c;background:rgba(201,168,76,.08);}
+.dp-body{padding:14px 16px;}
+.no-data{text-align:center;padding:28px 16px;font-size:12px;color:var(--dp-muted);font-family:var(--font-m);}
+
+/* BAR CHART */
+.bar-chart{display:flex;align-items:flex-end;gap:5px;height:90px;margin-bottom:8px;}
+.bc{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;justify-content:flex-end;}
+.bar{width:100%;border-radius:3px 3px 0 0;background:linear-gradient(to top,var(--gold-dim),var(--gold));min-height:3px;}
+.bar.today{background:linear-gradient(to top,#e8a000,#ffd166);}
+.bl{font-size:9px;font-family:var(--font-m);color:var(--dp-muted);}
+
+/* DP TABLE */
+.dp-table{width:100%;border-collapse:collapse;font-size:11px;}
+.dp-table th{padding:6px 10px;text-align:left;font-family:var(--font-m);font-size:9px;text-transform:uppercase;letter-spacing:.6px;color:var(--dp-muted);border-bottom:1px solid var(--dp-border);white-space:nowrap;}
+.dp-table td{padding:6px 10px;border-bottom:1px solid rgba(37,41,37,.5);color:var(--dp-text);white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis;}
+.dp-table tr:last-child td{border-bottom:none;}
+.dp-table tr:hover td{background:rgba(255,255,255,.03);}
+.stat-row{display:flex;gap:20px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--dp-border);}
+.si .sl{font-size:9px;font-family:var(--font-m);color:var(--dp-dim);margin-bottom:3px;}
+.si .sv{font-family:var(--font-d);font-size:16px;color:var(--dp-text);}
+.si .sv.gold{color:var(--gold);}
+
+/* REPORT STATUS */
+.sum-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+.sc{background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--maroon);border-radius:8px;padding:15px;}
+.sc-lbl{font-size:11px;color:var(--text-dim);margin-bottom:7px;text-transform:uppercase;letter-spacing:.5px;}
+.sc-val{font-size:26px;font-weight:700;}
+.sc-val.warn{color:var(--red);}.sc-val.gold{color:var(--gold);}
+.sec-lbl{font-size:13px;font-weight:600;color:var(--text);margin-bottom:11px;display:flex;align-items:center;gap:8px;}
+.sec-lbl::after{content:'';flex:1;height:1px;background:var(--border);}
+.rg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+.rc{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--border-strong);border-radius:8px;padding:13px 15px;cursor:pointer;transition:all .15s;}
+.rc:hover{border-color:var(--maroon);box-shadow:0 2px 10px rgba(123,45,45,.08);}
+.rc.hd{border-left-color:var(--green);}
+.rc.ap{border-left-color:var(--maroon);background:var(--maroon-light);}
+.rc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.rc-name{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;}
+.badge{font-size:10px;padding:2px 8px;border-radius:20px;white-space:nowrap;font-weight:500;}
+.b-g{background:var(--green-light);color:var(--green);}
+.b-x{background:#F3F0EC;color:var(--text-muted);}
+.rc-meta{font-size:11px;color:var(--text-dim);display:flex;gap:12px;flex-wrap:wrap;}
+.prev-box{margin-top:18px;border:1px solid var(--border);border-top:2px solid var(--maroon);border-radius:8px;overflow:hidden;}
+.prev-head{padding:11px 16px;background:var(--maroon-light);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.prev-title{font-size:13px;font-weight:600;color:var(--maroon);}
+.btn-close{font-size:12px;padding:4px 11px;border:1px solid var(--border-strong);border-radius:5px;background:#fff;cursor:pointer;color:var(--text-dim);}
+.tscroll{overflow-x:auto;}
+table.lt{width:100%;border-collapse:collapse;font-size:12px;}
+table.lt th{padding:7px 12px;text-align:left;font-weight:600;font-size:10px;color:var(--text-dim);background:#FAF8F5;border-bottom:1px solid var(--border);white-space:nowrap;text-transform:uppercase;}
+table.lt td{padding:7px 12px;border-bottom:1px solid var(--border);color:var(--text);white-space:nowrap;}
+table.lt tr:last-child td{border-bottom:none;}
+table.lt tr:hover td{background:var(--maroon-light);}
+
+/* UPLOAD */
+.upload-card{background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--maroon);border-radius:10px;padding:22px;margin-bottom:22px;}
+.up-title{font-size:16px;font-weight:700;font-family:var(--font-d);color:var(--maroon);margin-bottom:4px;}
+.up-sub{font-size:12px;color:var(--text-dim);margin-bottom:20px;}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:13px;}
+.fgroup label{font-size:11px;color:var(--text-dim);display:block;margin-bottom:5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;}
+select,input[type="date"],input[type="text"]{width:100%;padding:9px 11px;font-size:13px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-family:var(--font);outline:none;transition:border-color .15s;}
+select:focus,input:focus{border-color:var(--maroon);}
+.drop-zone{border:2px dashed var(--border-strong);border-radius:8px;padding:30px;text-align:center;cursor:pointer;margin-bottom:13px;transition:all .15s;background:var(--bg);}
+.drop-zone:hover,.drop-zone.dz-over{background:var(--maroon-light);border-color:var(--maroon);}
+.dz-icon{font-size:24px;margin-bottom:7px;color:var(--maroon);}
+.dz-main{font-size:13px;font-weight:600;margin-bottom:3px;}
+.dz-sub{font-size:12px;color:var(--text-dim);}
+.file-info{display:flex;align-items:center;justify-content:space-between;background:var(--green-light);border:1px solid #A7D4BC;border-radius:7px;padding:9px 13px;margin-bottom:13px;font-size:12px;}
+.fname{font-weight:600;color:var(--green);}
+.frows{color:var(--text-dim);margin-left:6px;}
+.btn-rm{font-size:11px;padding:3px 9px;border:1px solid var(--border);border-radius:5px;background:#fff;cursor:pointer;color:var(--text-dim);}
+.btn-up{width:100%;padding:12px;font-size:14px;font-weight:700;border:none;border-radius:7px;background:var(--maroon);color:#fff;cursor:pointer;transition:background .15s;}
+.btn-up:hover{background:var(--maroon-dark);}
+.btn-up:disabled{opacity:.5;cursor:not-allowed;}
+.up-status{text-align:center;font-size:12px;min-height:20px;margin-top:9px;}
+.hc{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.hr{display:flex;align-items:center;justify-content:space-between;padding:10px 15px;border-bottom:1px solid var(--border);transition:background .1s;}
+.hr:last-child{border-bottom:none;}
+.hr:hover{background:var(--bg);}
+.hl{display:flex;align-items:center;gap:9px;}
+.hn{font-size:13px;font-weight:600;}
+.hnote{font-size:11px;color:var(--text-dim);margin-top:1px;}
+.empty-s{text-align:center;padding:34px;color:var(--text-dim);font-size:13px;border:1.5px dashed var(--border);border-radius:8px;}
+
+.ov-lbl{font-size:11px;font-family:var(--font-m);text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:10px;}
+.loading{text-align:center;padding:48px;color:var(--text-dim);font-size:13px;}
+.footer{text-align:center;padding:18px;font-size:11px;color:var(--text-muted);border-top:1px solid var(--border);margin-top:28px;font-family:var(--font-d);}
+
+/* CONFIG BANNER */
+.config-banner{background:#1a1a2e;color:#e8e8f0;padding:20px 24px;font-family:var(--font-m);font-size:12px;border-bottom:2px solid #c9a84c;}
+.config-banner strong{color:#c9a84c;font-size:13px;}
+.config-banner code{background:rgba(201,168,76,.15);padding:2px 6px;border-radius:4px;color:#ffd166;}
+
+@media(max-width:640px){
+  .kpi-row{grid-template-columns:repeat(3,1fr);}
+  .row2,.row2e{grid-template-columns:1fr;}
+  .sum-grid{grid-template-columns:repeat(2,1fr);}
+  .rg{grid-template-columns:1fr;}
+  .fg{grid-template-columns:1fr;}
+  .status-row{grid-template-columns:repeat(2,1fr);}
+}
+</style>
+</head>
+<body>
+
+<!-- CONFIG BANNER — shown until keys are added -->
+<div class="config-banner" id="config-banner">
+  <strong>⚙ Setup Required</strong> &nbsp;—&nbsp;
+  Open this file in a text editor and replace the two placeholders below with your Supabase credentials:<br>
+  <code>YOUR_SUPABASE_URL</code> and <code>YOUR_SUPABASE_ANON_KEY</code> &nbsp;(lines 10–11 in the script section)
+</div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="hbrand">
+    <div class="hemblem">🏨</div>
+    <div>
+      <div class="hname">Ajanta Hotel</div>
+      <div class="htag">Operations Portal · New Delhi</div>
+    </div>
+  </div>
+  <div class="hright">
+    <span class="realtime-badge">⚡ Real-time</span>
+    <a href="https://www.hotelajanta.com" target="_blank" class="hlink">hotelajanta.com ↗</a>
+    <div class="live-pill"><div class="pulse"></div><span id="sync-label">Connecting...</span></div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tab-bar">
+  <button class="tab active" id="t1" onclick="switchTab('overview')">🏨 &nbsp;Overview</button>
+  <button class="tab" id="t2" onclick="switchTab('status')">📋 &nbsp;Report Status</button>
+  <button class="tab" id="t3" onclick="switchTab('upload')">⬆ &nbsp;Upload Data</button>
+</div>
+
+<div class="container">
+
+<!-- TAB 1: OVERVIEW -->
+<div id="view-overview">
+  <div class="filter-bar">
+    <span class="filter-label">Period:</span>
+    <button class="fbtn active" data-f="today" onclick="setFilter('today')">Today</button>
+    <button class="fbtn" data-f="week" onclick="setFilter('week')">This Week</button>
+    <button class="fbtn" data-f="month" onclick="setFilter('month')">This Month</button>
+    <button class="fbtn" data-f="all" onclick="setFilter('all')">All Time</button>
+    <div style="display:flex;align-items:center;gap:6px;margin-left:4px;">
+      <input type="date" class="date-input" id="ov-from" onchange="setFilter('custom')">
+      <span style="font-size:12px;color:var(--text-dim)">–</span>
+      <input type="date" class="date-input" id="ov-to" onchange="setFilter('custom')">
+    </div>
+  </div>
+  <div id="ov-loading" class="loading"><div style="font-size:22px;margin-bottom:10px">🏨</div>Connecting to database...</div>
+  <div id="ov-content" style="display:none">
+    <div class="ov-lbl">Key Metrics</div>
+    <div class="kpi-row" id="kpi-row"></div>
+    <div class="ov-lbl">Data Sources</div>
+    <div class="status-row" id="status-pills"></div>
+
+    <div class="row1">
+      <div class="dp">
+        <div class="dp-head"><div class="dp-title"><span>⚡</span>Daily Elec Unit Report</div><span class="dp-badge bb" id="elec-badge">—</span></div>
+        <div class="dp-body" id="elec-body"><div class="no-data">Upload "Daily Elec Unit Report" to see electricity data here.</div></div>
+      </div>
+    </div>
+    <div class="row2">
+      <div class="dp">
+        <div class="dp-head"><div class="dp-title"><span>💰</span>Daily Cost Report</div><span class="dp-badge bgold" id="cost-badge">—</span></div>
+        <div class="dp-body" id="cost-body"><div class="no-data">Upload "Daily Cost Report" to see data.</div></div>
+      </div>
+      <div class="dp">
+        <div class="dp-head"><div class="dp-title"><span>🥛</span>Daily Milk Consumption</div><span class="dp-badge bb" id="milk-badge">—</span></div>
+        <div class="dp-body" id="milk-body"><div class="no-data">Upload "Daily Milk Consumption Report" to see data.</div></div>
+      </div>
+    </div>
+    <div class="row2e">
+      <div class="dp">
+        <div class="dp-head"><div class="dp-title"><span>♻️</span>Daily Wastage</div><span class="dp-badge br" id="waste-badge">—</span></div>
+        <div class="dp-body" id="waste-body"><div class="no-data">Upload "Daily Wastage Master Sheet" to see data.</div></div>
+      </div>
+      <div class="dp">
+        <div class="dp-head"><div class="dp-title"><span>🍽️</span>Menu Item Sales</div><span class="dp-badge bg" id="sales-badge">—</span></div>
+        <div class="dp-body" id="sales-body"><div class="no-data">Upload "Menu Item Sales Summary" to see data.</div></div>
+      </div>
+    </div>
+    <div class="row2e">
+      <div class="dp">
+        <div class="dp-head"><div class="dp-title"><span>📋</span>NC Report</div><span class="dp-badge bgold" id="nc-badge">—</span></div>
+        <div class="dp-body" id="nc-body"><div class="no-data">Upload "NC Report" to see data.</div></div>
+      </div>
+      <div class="dp">
+        <div class="dp-head"><div class="dp-title"><span>🧺</span>Laundry Sheet</div><span class="dp-badge bb" id="laundry-badge">—</span></div>
+        <div class="dp-body" id="laundry-body"><div class="no-data">Upload "Laundry Sheet" to see data.</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 2: REPORT STATUS -->
+<div id="view-status" style="display:none">
+  <div class="filter-bar">
+    <span class="filter-label">Period:</span>
+    <button class="fbtn active" data-f2="today" onclick="setFilter2('today')">Today</button>
+    <button class="fbtn" data-f2="week" onclick="setFilter2('week')">This Week</button>
+    <button class="fbtn" data-f2="month" onclick="setFilter2('month')">This Month</button>
+    <button class="fbtn" data-f2="all" onclick="setFilter2('all')">All Time</button>
+  </div>
+  <div id="st-loading" class="loading">Loading...</div>
+  <div id="st-content" style="display:none">
+    <div class="sum-grid" id="sum-grid"></div>
+    <div class="sec-lbl">Report Sections</div>
+    <div class="rg" id="rep-grid"></div>
+    <div id="prev-sec" style="display:none"></div>
+  </div>
+</div>
+
+<!-- TAB 3: UPLOAD -->
+<div id="view-upload" style="display:none">
+  <div class="upload-card">
+    <div class="up-title">Upload Report</div>
+    <div class="up-sub">Select the report type, set the date it covers, upload the file. Data saves to the database instantly and the Overview tab updates in real time — no refresh needed.</div>
+    <div class="fg">
+      <div class="fgroup"><label>Report Type</label>
+        <select id="sel-type">
+          <option value="">— Select Report —</option>
+          <option>NC Report</option>
+          <option>Menu Item Sales Summary</option>
+          <option>GRN Report</option>
+          <option>Beverages Inventory Report</option>
+          <option>Bakery Inventory Report</option>
+          <option>Coffee Variance Report</option>
+          <option>Daily Elec Unit Report</option>
+          <option>Daily Milk Consumption Report</option>
+          <option>Daily Wastage Master Sheet</option>
+          <option>Daily Cost Report</option>
+          <option>Laundry Sheet</option>
+        </select>
+      </div>
+      <div class="fgroup"><label>Report Date</label><input type="date" id="sel-date"></div>
+    </div>
+    <div class="fgroup" style="margin-bottom:14px">
+      <label>Note (optional)</label>
+      <input type="text" id="sel-note" placeholder="e.g. Daily data, Saturday shift, post-audit adjustment...">
+    </div>
+    <div class="drop-zone" id="drop-zone"
+      onclick="document.getElementById('file-in').click()"
+      ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+      <div class="dz-icon">&#8679;</div>
+      <div class="dz-main">Click to select file, or drag here</div>
+      <div class="dz-sub">Supports CSV and Excel (.xlsx, .xls)</div>
+      <input type="file" id="file-in" accept=".csv,.xlsx,.xls" style="display:none" onchange="onFileSelect(event)">
+    </div>
+    <div class="file-info" id="file-info" style="display:none">
+      <div><span class="fname" id="f-name"></span><span class="frows" id="f-rows"></span></div>
+      <button class="btn-rm" onclick="clearFile()">Remove</button>
+    </div>
+    <button class="btn-up" id="btn-upload" onclick="doUpload()">Save to Ajanta Hotel Database</button>
+    <div class="up-status" id="u-status"></div>
+  </div>
+  <div class="sec-lbl">Upload History</div>
+  <div id="hist-wrap"></div>
+</div>
+
+</div>
+<div class="footer">Ajanta Hotel · Paharganj, New Delhi &nbsp;·&nbsp; hotelajanta.com &nbsp;·&nbsp; Operations Portal</div>
+
+<script>
+// ================================================================
+//  STEP 1: Replace these two values with your Supabase credentials
+//  Get them from: Supabase Dashboard → Project Settings → API
+// ================================================================
+var SUPABASE_URL  = 'YOUR_SUPABASE_URL';       // e.g. https://abcxyz.supabase.co
+var SUPABASE_KEY  = 'YOUR_SUPABASE_ANON_KEY';  // starts with eyJ...
+// ================================================================
+
+var REPORTS = ['NC Report','Menu Item Sales Summary','GRN Report','Beverages Inventory Report','Bakery Inventory Report','Coffee Variance Report','Daily Elec Unit Report','Daily Milk Consumption Report','Daily Wastage Master Sheet','Daily Cost Report','Laundry Sheet'];
+var ICONS = {'NC Report':'📋','Menu Item Sales Summary':'🍽️','GRN Report':'📦','Beverages Inventory Report':'🥤','Bakery Inventory Report':'🥐','Coffee Variance Report':'☕','Daily Elec Unit Report':'⚡','Daily Milk Consumption Report':'🥛','Daily Wastage Master Sheet':'♻️','Daily Cost Report':'💰','Laundry Sheet':'🧺'};
+
+var S = { filter:'today', filter2:'today', customFrom:null, customTo:null, allData:{}, pendingParsed:null };
+var db = null;
+
+// Init Supabase
+function initDB() {
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+    document.getElementById('sync-label').textContent = 'Not configured';
+    document.getElementById('ov-loading').innerHTML = '<div style="color:#C49A2A;font-size:13px;padding:20px">⚙ Please add your Supabase URL and Key to this file.<br><br>See the yellow banner at the top for instructions.</div>';
+    return;
+  }
+  document.getElementById('config-banner').style.display = 'none';
+  db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // Subscribe to real-time changes — dashboard updates the moment anyone uploads
+  db.channel('uploads-watch')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'uploads' }, function() {
+      loadData();
+    })
+    .subscribe();
+
+  loadData();
+}
+
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+function fmtN(n) { return Math.round(n).toLocaleString('en-IN'); }
+function fmtD(n,d) { return parseFloat(n).toFixed(d||1); }
+
+function inRange(d, f) {
+  f = f || S.filter;
+  if (!d) return false;
+  var dt = new Date(d), now = new Date(), t = new Date(todayStr());
+  if (f === 'today') return d === todayStr();
+  if (f === 'week') { var w = new Date(t); w.setDate(w.getDate()-6); return dt >= w && dt <= now; }
+  if (f === 'month') return d.startsWith(todayStr().slice(0,7));
+  if (f === 'all') return true;
+  if (f === 'custom') {
+    var fr = S.customFrom ? new Date(S.customFrom) : new Date('2000-01-01');
+    var to = S.customTo ? new Date(S.customTo) : now;
+    return dt >= fr && dt <= to;
+  }
+  return true;
+}
+
+function getF(type, filter) {
+  return (S.allData[type] || []).filter(function(u) { return inRange(u.date, filter || S.filter); });
+}
+
+function getRows(type, filter) {
+  var rows = [];
+  getF(type, filter).forEach(function(u) { rows = rows.concat(u.preview || []); });
+  return rows;
+}
+
+function findCol(headers, patterns) {
+  for (var i = 0; i < patterns.length; i++) {
+    var p = new RegExp(patterns[i], 'i');
+    var f = headers.find(function(h) { return p.test(h); });
+    if (f) return f;
+  }
+  return null;
+}
+
+function sumCol(rows, col) {
+  if (!col) return 0;
+  return rows.reduce(function(s, r) {
+    return s + (parseFloat(String(r[col] || 0).replace(/[^0-9.-]/g,'')) || 0);
+  }, 0);
+}
+
+// LOAD ALL DATA FROM SUPABASE
+async function loadData() {
+  try {
+    var result = await db.from('uploads').select('*').order('uploaded_at', { ascending: false });
+    if (result.error) throw result.error;
+    var rows = result.data || [];
+
+    S.allData = {};
+    rows.forEach(function(row) {
+      var type = row.report_type;
+      if (!type) return;
+      if (!S.allData[type]) S.allData[type] = [];
+      S.allData[type].push({
+        id:         row.id,
+        date:       row.report_date,
+        note:       row.note || '',
+        uploadedAt: row.uploaded_at || '',
+        rowCount:   row.row_count || 0,
+        headers:    Array.isArray(row.headers) ? row.headers : [],
+        preview:    Array.isArray(row.preview) ? row.preview : []
+      });
+    });
+
+    var latest = rows[0];
+    document.getElementById('sync-label').textContent = latest ? 'Last upload: ' + latest.report_date : 'No uploads yet';
+    document.getElementById('ov-loading').style.display = 'none';
+    document.getElementById('ov-content').style.display = '';
+    document.getElementById('st-loading').style.display = 'none';
+    document.getElementById('st-content').style.display = '';
+    renderOverview();
+    renderStatus();
+    renderHistory();
+  } catch(e) {
+    document.getElementById('ov-loading').innerHTML = '<span style="color:#C0392B">Database error: ' + e.message + '<br>Check your Supabase URL and Key.</span>';
+  }
+}
+
+// SWITCH TABS
+function switchTab(t) {
+  ['overview','status','upload'].forEach(function(n) {
+    document.getElementById('view-'+n).style.display = n === t ? '' : 'none';
+    var idx = n === 'overview' ? 1 : n === 'status' ? 2 : 3;
+    document.getElementById('t'+idx).className = 'tab' + (n === t ? ' active' : '');
+  });
+}
+
+// FILTERS
+function setFilter(f) {
+  S.filter = f;
+  if (f === 'custom') { S.customFrom = document.getElementById('ov-from').value; S.customTo = document.getElementById('ov-to').value; }
+  document.querySelectorAll('[data-f]').forEach(function(b) { b.classList.toggle('active', b.dataset.f === f); });
+  if (document.getElementById('ov-content').style.display !== 'none') renderOverview();
+}
+function setFilter2(f) {
+  S.filter2 = f;
+  document.querySelectorAll('[data-f2]').forEach(function(b) { b.classList.toggle('active', b.dataset.f2 === f); });
+  if (document.getElementById('st-content').style.display !== 'none') renderStatus();
+}
+
+// RENDER OVERVIEW
+function renderOverview() {
+  renderKPI();
+  renderStatusPills();
+  renderElec();
+  renderPanel('Daily Cost Report',            'cost',    ['cost','amount','total','expense','charges'], true);
+  renderPanel('Daily Milk Consumption Report', 'milk',   ['qty','litre','liter','ml','consumed','quantity','amount'], false);
+  renderPanel('Daily Wastage Master Sheet',    'waste',  ['qty','quantity','amount','weight','kg','value'], false);
+  renderPanel('Menu Item Sales Summary',       'sales',  ['qty','quantity','amount','sales','revenue','total','sold'], true);
+  renderPanel('NC Report',                     'nc',     ['qty','quantity','amount','count','pax','covers'], false);
+  renderPanel('Laundry Sheet',                 'laundry',['qty','quantity','pieces','pcs','items','amount'], false);
+}
+
+function renderKPI() {
+  var updated=0, uploads=0, rows=0;
+  REPORTS.forEach(function(r) {
+    var f = getF(r);
+    if (f.length) { updated++; uploads += f.length; f.forEach(function(u) { rows += u.rowCount; }); }
+  });
+  var elecH = (S.allData['Daily Elec Unit Report'] || []).length ? S.allData['Daily Elec Unit Report'][0].headers : [];
+  var costH = (S.allData['Daily Cost Report'] || []).length ? S.allData['Daily Cost Report'][0].headers : [];
+  var milkH = (S.allData['Daily Milk Consumption Report'] || []).length ? S.allData['Daily Milk Consumption Report'][0].headers : [];
+  var uCol = findCol(elecH, ['unit','kwh','consumption','consumed']);
+  var cCol = findCol(costH, ['cost','amount','total','expense']);
+  var mCol = findCol(milkH, ['qty','litre','liter','ml','consumed','quantity','amount']);
+  var tu = sumCol(getRows('Daily Elec Unit Report'), uCol);
+  var tc = sumCol(getRows('Daily Cost Report'), cCol);
+  var tm = sumCol(getRows('Daily Milk Consumption Report'), mCol);
+  var pl = S.filter==='today'?'Today':S.filter==='week'?'This Week':S.filter==='month'?'This Month':'Period';
+  document.getElementById('kpi-row').innerHTML =
+    kpi('Reports Updated', updated+' / '+REPORTS.length, 'var(--gold)', pl) +
+    kpi('Total Uploads', String(uploads), 'var(--gold)', 'Files') +
+    kpi('Data Rows', fmtN(rows), 'var(--gold)', 'Total') +
+    kpi('Elec Units', tu ? fmtN(tu)+' kWh' : '—', '#4a9eff', 'Daily Elec') +
+    kpi('Total Cost', tc ? '₹'+fmtN(tc) : '—', '#e05555', 'Daily Cost') +
+    kpi('Milk', tm ? fmtD(tm)+' L' : '—', '#3dba6f', 'Consumed');
+}
+function kpi(l,v,a,s) {
+  return '<div class="kpi-card" style="--ka:'+a+'"><div class="kpi-lbl">'+l+'</div><div class="kpi-val">'+v+'</div><div class="kpi-sub">'+s+'</div></div>';
+}
+
+function renderStatusPills() {
+  document.getElementById('status-pills').innerHTML = REPORTS.map(function(r) {
+    var f = getF(r), any = (S.allData[r]||[]).length > 0;
+    var has = f.length > 0;
+    var col = has ? '#3dba6f' : any ? '#c9a84c' : '#4a514a';
+    var lbl = has ? 'Updated' : any ? 'Has data' : 'Never uploaded';
+    return '<div class="sp"><div class="sp-name">'+(ICONS[r]||'📄')+' '+r+'</div>' +
+      '<div class="sp-st"><div class="sp-dot" style="background:'+col+'"></div>' +
+      '<span style="font-family:var(--font-m);font-size:10px;color:'+col+'">'+lbl+'</span></div></div>';
+  }).join('');
+}
+
+function renderElec() {
+  var uploads = getF('Daily Elec Unit Report');
+  var badge = document.getElementById('elec-badge');
+  var body = document.getElementById('elec-body');
+  if (!uploads.length) {
+    badge.textContent = 'No data'; badge.className = 'dp-badge br';
+    body.innerHTML = '<div class="no-data">No electricity data for this period.<br>Upload "Daily Elec Unit Report" to see it here.</div>';
+    return;
+  }
+  badge.textContent = uploads.length + ' upload' + (uploads.length>1?'s':'');
+  badge.className = 'dp-badge bb';
+  var rows = getRows('Daily Elec Unit Report');
+  var headers = uploads[0].headers || [];
+  var dCol = findCol(headers, ['date','day']);
+  var uCol = findCol(headers, ['unit','kwh','consumption','consumed','total unit']);
+  var cCol = findCol(headers, ['cost','amount','charge','expense']);
+  var tu = sumCol(rows, uCol), tc = sumCol(rows, cCol);
+
+  var chartHtml = '';
+  if (dCol && uCol && rows.length > 1) {
+    var byDate = {};
+    rows.forEach(function(r) {
+      var d = String(r[dCol]||'').slice(0,10);
+      if (d) { if (!byDate[d]) byDate[d]=0; byDate[d]+=(parseFloat(String(r[uCol]||0).replace(/[^0-9.-]/g,''))||0); }
+    });
+    var dates = Object.keys(byDate).sort().slice(-12);
+    var mx = 0; dates.forEach(function(d){if(byDate[d]>mx)mx=byDate[d];});
+    if (dates.length > 1 && mx > 0) {
+      chartHtml = '<div class="bar-chart">' + dates.map(function(d,i) {
+        var pct = Math.round((byDate[d]/mx)*100);
+        return '<div class="bc"><div class="bar'+(i===dates.length-1?' today':'')+'" style="height:'+Math.max(pct,3)+'%"></div><div class="bl">'+d.slice(5)+'</div></div>';
+      }).join('') + '</div>';
+    }
+  }
+
+  var sc = headers.slice(0,8);
+  var tbl = '<div style="overflow-x:auto"><table class="dp-table"><thead><tr>'+sc.map(function(h){return'<th>'+h+'</th>';}).join('')+(headers.length>8?'<th>...</th>':'')+
+    '</tr></thead><tbody>'+rows.slice(0,20).map(function(r){
+      return '<tr>'+sc.map(function(h){return'<td>'+(r[h]!=null?String(r[h]):'—')+'</td>';}).join('')+(headers.length>8?'<td style="opacity:.4">...</td>':'')+' </tr>';
+    }).join('')+'</tbody></table></div>';
+
+  body.innerHTML = chartHtml + tbl +
+    '<div class="stat-row">'+
+    (uCol?'<div class="si"><div class="sl">Total Units</div><div class="sv gold">'+fmtN(tu)+' kWh</div></div>':'')+
+    (cCol?'<div class="si"><div class="sl">Total Cost</div><div class="sv gold">₹'+fmtN(tc)+'</div></div>':'')+
+    '<div class="si"><div class="sl">Rows</div><div class="sv">'+fmtN(rows.length)+'</div></div>'+
+    '<div class="si"><div class="sl">Uploads</div><div class="sv">'+uploads.length+'</div></div></div>';
+}
+
+function renderPanel(type, id, patterns, isCurrency) {
+  var uploads = getF(type);
+  var badge = document.getElementById(id+'-badge');
+  var body = document.getElementById(id+'-body');
+  if (!uploads.length) {
+    badge.textContent='No data'; badge.className='dp-badge br';
+    body.innerHTML='<div class="no-data">Upload "'+type+'" to see data here.</div>';
+    return;
+  }
+  badge.textContent=uploads.length+' upload'+(uploads.length>1?'s':'');
+  badge.className='dp-badge bg';
+  var rows=getRows(type), headers=uploads[0].headers||[];
+  var vCol=findCol(headers,patterns), total=sumCol(rows,vCol);
+  var sc=headers.slice(0,6);
+  var tbl='<div style="overflow-x:auto"><table class="dp-table"><thead><tr>'+sc.map(function(h){return'<th>'+h+'</th>';}).join('')+(headers.length>6?'<th>...</th>':'')+
+    '</tr></thead><tbody>'+rows.slice(0,15).map(function(r){
+      return '<tr>'+sc.map(function(h){return'<td>'+(r[h]!=null?String(r[h]):'—')+'</td>';}).join('')+(headers.length>6?'<td style="opacity:.4">...</td>':'')+' </tr>';
+    }).join('')+'</tbody></table></div>';
+  body.innerHTML=tbl+(vCol?'<div class="stat-row"><div class="si"><div class="sl">Total</div><div class="sv gold">'+(isCurrency?'₹':'')+fmtN(total)+'</div></div><div class="si"><div class="sl">Rows</div><div class="sv">'+fmtN(rows.length)+'</div></div></div>':'');
+}
+
+// REPORT STATUS
+function renderStatus() {
+  var pl=S.filter2==='today'?'Today':S.filter2==='week'?'This Week':S.filter2==='month'?'This Month':'Period';
+  var upd=0,upl=0,rws=0,nv=0;
+  REPORTS.forEach(function(r){
+    var f=getF(r,S.filter2);
+    if(f.length){upd++;upl+=f.length;f.forEach(function(u){rws+=u.rowCount;});}
+    if(!(S.allData[r]||[]).length)nv++;
+  });
+  document.getElementById('sum-grid').innerHTML=
+    sc2('Reports Updated ('+pl+')',upd+' / '+REPORTS.length,'')+
+    sc2('Total Uploads',String(upl),'')+
+    sc2('Total Rows',fmtN(rws),'gold')+
+    sc2('Never Uploaded',String(nv),nv>0?'warn':'');
+  document.getElementById('rep-grid').innerHTML=REPORTS.map(function(r){
+    var all=S.allData[r]||[];
+    var f=all.filter(function(u){return inRange(u.date,S.filter2);});
+    var lat=all.slice().sort(function(a,b){return b.date.localeCompare(a.date);})[0];
+    var has=f.length>0, isT=lat&&lat.date===todayStr();
+    return '<div class="rc'+(has?' hd':'')+'" id="rc_'+r.replace(/\W/g,'_')+'" onclick="showPreview(\''+r.replace(/'/g,"\\'")+'\')">'+
+      '<div class="rc-top"><div class="rc-name"><span>'+(ICONS[r]||'📄')+'</span>'+r+'</div>'+
+      (has?'<span class="badge b-g">'+f.length+' file'+(f.length>1?'s':'')+'</span>':'<span class="badge b-x">Pending</span>')+
+      '</div><div class="rc-meta">'+
+      '<span>'+(lat?'↑ '+lat.date+(isT?' · Today':''):'Never uploaded')+'</span>'+
+      (lat?'<span>'+lat.rowCount.toLocaleString()+' rows</span>':'')+
+      (lat&&lat.note?'<span style="font-style:italic">'+lat.note.slice(0,28)+(lat.note.length>28?'...':'')+'</span>':'')+
+      '</div></div>';
+  }).join('');
+}
+function sc2(l,v,c){ return '<div class="sc"><div class="sc-lbl">'+l+'</div><div class="sc-val'+(c?' '+c:'')+'">'+v+'</div></div>'; }
+
+function showPreview(r) {
+  var all=S.allData[r]||[];
+  var f=all.filter(function(u){return inRange(u.date,S.filter2);});
+  if(!f.length){alert('No data for this report in the selected period.');return;}
+  document.querySelectorAll('.rc').forEach(function(c){c.classList.remove('ap');});
+  var el=document.getElementById('rc_'+r.replace(/\W/g,'_'));
+  if(el)el.classList.add('ap');
+  var lat=f.slice().sort(function(a,b){return b.date.localeCompare(a.date);})[0];
+  var h=lat.headers||[],rows=lat.preview||[];
+  var tbl=h.length?'<table class="lt"><thead><tr>'+h.slice(0,12).map(function(c){return'<th>'+c+'</th>';}).join('')+(h.length>12?'<th>+more</th>':'')+
+    '</tr></thead><tbody>'+rows.map(function(row){return'<tr>'+h.slice(0,12).map(function(c){return'<td>'+(row[c]!=null?String(row[c]):'—')+'</td>';}).join('')+(h.length>12?'<td style="opacity:.4">…</td>':'')+' </tr>';}).join('')+'</tbody></table>'
+    :'<div style="padding:20px;color:var(--text-dim)">No preview available.</div>';
+  var sec=document.getElementById('prev-sec');
+  sec.style.display='';
+  sec.innerHTML='<div class="prev-box"><div class="prev-head"><div class="prev-title">'+(ICONS[r]||'📄')+' '+r+' · '+lat.date+(lat.note?' · <em>'+lat.note+'</em>':'')+
+    '</div><button class="btn-close" onclick="closePrev()">Close ✕</button></div><div class="tscroll">'+tbl+'</div></div>';
+  sec.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function closePrev(){document.getElementById('prev-sec').style.display='none';document.querySelectorAll('.rc').forEach(function(c){c.classList.remove('ap');});}
+
+// UPLOAD HISTORY
+function renderHistory() {
+  var all=[];
+  Object.keys(S.allData).forEach(function(t){
+    S.allData[t].forEach(function(u){ all.push({type:t,date:u.date,note:u.note,uploadedAt:u.uploadedAt,rowCount:u.rowCount}); });
+  });
+  all.sort(function(a,b){return b.uploadedAt.localeCompare(a.uploadedAt);});
+  if(all.length>30)all=all.slice(0,30);
+  var el=document.getElementById('hist-wrap');
+  if(!all.length){el.innerHTML='<div class="empty-s">No uploads yet. Upload your first report above.</div>';return;}
+  el.innerHTML='<div class="hc">'+all.map(function(u){
+    return'<div class="hr"><div class="hl"><span style="font-size:15px">'+(ICONS[u.type]||'📄')+'</span>'+
+      '<div><div class="hn">'+u.type+'</div><div class="hnote">'+(u.note||'No note')+'</div></div></div>'+
+      '<div style="text-align:right"><div style="font-size:12px;font-weight:600">'+u.date+'</div>'+
+      '<div style="font-size:11px;color:var(--text-dim)">'+u.rowCount.toLocaleString()+' rows</div></div></div>';
+  }).join('')+'</div>';
+}
+
+// FILE PARSING
+function onDragOver(e){e.preventDefault();document.getElementById('drop-zone').classList.add('dz-over');}
+function onDragLeave(e){document.getElementById('drop-zone').classList.remove('dz-over');}
+function onDrop(e){e.preventDefault();document.getElementById('drop-zone').classList.remove('dz-over');if(e.dataTransfer.files[0])parseFile(e.dataTransfer.files[0]);}
+function onFileSelect(e){if(e.target.files[0])parseFile(e.target.files[0]);}
+
+function parseFile(file) {
+  var ext=file.name.split('.').pop().toLowerCase();
+  if(ext==='csv'){
+    Papa.parse(file,{header:true,skipEmptyLines:true,complete:function(r){S.pendingParsed=r;showFI(file.name,r.data.length);}});
+  }else if(ext==='xlsx'||ext==='xls'){
+    var rd=new FileReader();
+    rd.onload=function(e){
+      var wb=XLSX.read(e.target.result,{type:'array'});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var json=XLSX.utils.sheet_to_json(ws,{defval:''});
+      S.pendingParsed={data:json,meta:{fields:json.length?Object.keys(json[0]):[]}};
+      showFI(file.name,json.length);
+    };
+    rd.readAsArrayBuffer(file);
+  }else{alert('Please upload a CSV or Excel (.xlsx, .xls) file.');}
+}
+
+function showFI(name,count){
+  document.getElementById('f-name').textContent=name;
+  document.getElementById('f-rows').textContent=' · '+count.toLocaleString()+' rows detected';
+  document.getElementById('file-info').style.display='flex';
+}
+function clearFile(){S.pendingParsed=null;document.getElementById('file-info').style.display='none';document.getElementById('file-in').value='';}
+
+// SAVE UPLOAD TO SUPABASE
+async function doUpload() {
+  var type=document.getElementById('sel-type').value;
+  var date=document.getElementById('sel-date').value;
+  var note=document.getElementById('sel-note').value.trim();
+  var st=document.getElementById('u-status');
+  if(!type){st.style.color='var(--red)';st.textContent='Please select a report type.';return;}
+  if(!date){st.style.color='var(--red)';st.textContent='Please select the report date.';return;}
+  if(!S.pendingParsed){st.style.color='var(--red)';st.textContent='Please select a file.';return;}
+  var data=S.pendingParsed.data||[];
+  var headers=data.length>0?Object.keys(data[0]):(S.pendingParsed.meta&&S.pendingParsed.meta.fields?S.pendingParsed.meta.fields:[]);
+  var preview=data.slice(0,50);
+  document.getElementById('btn-upload').disabled=true;
+  st.style.color='var(--text-dim)';st.textContent='Saving to database...';
+  try {
+    var result = await db.from('uploads').insert({
+      report_type: type,
+      report_date: date,
+      note:        note,
+      row_count:   data.length,
+      headers:     headers,
+      preview:     preview
+    });
+    if(result.error) throw result.error;
+    st.style.color='var(--green)';
+    st.textContent='✓ Saved — '+data.length.toLocaleString()+' rows. Dashboard updated in real time.';
+    clearFile();
+    document.getElementById('sel-note').value='';
+    document.getElementById('btn-upload').disabled=false;
+    setTimeout(function(){st.textContent='';},5000);
+    // Note: loadData() is called automatically via real-time subscription
+  } catch(e) {
+    st.style.color='var(--red)';st.textContent='Error: '+e.message;
+    document.getElementById('btn-upload').disabled=false;
+  }
+}
+
+// INIT
+document.getElementById('sel-date').value=todayStr();
+initDB();
+</script>
+</body>
+</html>
